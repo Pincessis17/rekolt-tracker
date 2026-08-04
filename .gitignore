@@ -1,0 +1,16 @@
+# Build output
+target/
+out/
+*.class
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Generated report output is committed on purpose per the spec (output/),
+# so nothing under output/ is ignored here.

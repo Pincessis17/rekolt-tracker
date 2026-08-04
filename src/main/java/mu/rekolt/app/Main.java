@@ -1,20 +1,14 @@
 package mu.rekolt.app;
 
-/**
- * Objective 1: Environment and arithmetic.
- * Computes one delivery's payment through the five steps in section 2
- * of the spec, using the worked example (M-0042, 236 kg beans, quality 91).
- * Values are set in code for this objective; console input arrives in Objective 2.
- */
 public class Main {
 
-    // Step 1 base prices, MUR per kg
+    //  base prices, MUR per kg
     private static final double BEANS_PRICE_PER_KG = 90.0;
 
-    // Step 3 category multiplier (beans = cereal)
+    // category multiplier (beans = cereal)
     private static final double CEREAL_MULTIPLIER = 1.00;
 
-    // Step 4 / 5 fixed rates
+    // fixed rates
     private static final double COMMISSION_RATE = 0.05;
     private static final double TRANSPORT_LEVY_PER_KG = 2.0;
 
