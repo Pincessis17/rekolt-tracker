@@ -3,7 +3,7 @@ package mu.rekolt.model;
 import mu.rekolt.service.Grading;
 import mu.rekolt.service.PaymentCalculator;
 
-public class Delivery {
+public class Delivery implements Comparable<Delivery> {
 
     public final String deliveryId;
     public final String memberId;
@@ -30,5 +30,16 @@ public class Delivery {
         // with its own quality score.
         this.grade = Grading.gradeLetter(qualityScore);
         this.netPayable = PaymentCalculator.computeNetPayable(this);
+    }
+
+    /**
+     * Natural ordering: by delivery ID, i.e. the order deliveries were
+     * recorded in. Objective 3 asks for both Comparable (this, the type's
+     * one default order) and a separate Comparator (in Main, an unrelated
+     * "by value" order) so two different sorting mechanisms are shown.
+     */
+    @Override
+    public int compareTo(Delivery other) {
+        return this.deliveryId.compareTo(other.deliveryId);
     }
 }

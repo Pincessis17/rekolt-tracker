@@ -1,50 +1,46 @@
 package mu.rekolt.service;
 
 import mu.rekolt.model.Delivery;
+import mu.rekolt.model.PriceListEntry;
 
 /**
- * The five payment steps from section 2 plus the price list
- *  and category multipliers looked up by produce code.
+ * The five payment steps from section 2, plus the price list (rule 1)
+ * and category multipliers (rule 3). Objective 3 asks for the price
+ * list itself to be an array, searched by produce code, rather than
+ * the switch statements this used in Objective 2.
  */
 public class PaymentCalculator {
 
     private static final double COMMISSION_RATE = 0.05;
     private static final double TRANSPORT_LEVY_PER_KG = 2.0;
 
-    public static double basePriceFor(String produceCode) {
-        switch (produceCode) {
-            case "MZE": return 30.0;
-            case "BNS": return 90.0;
-            case "POT": return 45.0;
-            case "TEA": return 25.0;
-            default: throw new IllegalArgumentException("Unknown produce code: " + produceCode);
+    private static final PriceListEntry[] PRICE_LIST = {
+            new PriceListEntry("MZE", "Cereal", 30.0, 1.00),
+            new PriceListEntry("BNS", "Cereal", 90.0, 1.00),
+            new PriceListEntry("POT", "Perishable", 45.0, 0.90),
+            new PriceListEntry("TEA", "Cash crop", 25.0, 1.10),
+    };
+
+    /** Linear search of the price list array by produce code. */
+    private static PriceListEntry entryFor(String produceCode) {
+        for (PriceListEntry entry : PRICE_LIST) {
+            if (entry.code.equals(produceCode)) {
+                return entry;
+            }
         }
+        throw new IllegalArgumentException("Unknown produce code: " + produceCode);
+    }
+
+    public static double basePriceFor(String produceCode) {
+        return entryFor(produceCode).basePricePerKg;
     }
 
     public static double categoryMultiplierFor(String produceCode) {
-        switch (produceCode) {
-            case "MZE":
-            case "BNS":
-                return 1.00; // cereal
-            case "POT":
-                return 0.90; // perishable
-            case "TEA":
-                return 1.10; // cash crop
-            default: throw new IllegalArgumentException("Unknown produce code: " + produceCode);
-        }
+        return entryFor(produceCode).categoryMultiplier;
     }
 
     public static String categoryLabelFor(String produceCode) {
-        switch (produceCode) {
-            case "MZE":
-            case "BNS":
-                return "Cereal";
-            case "POT":
-                return "Perishable";
-            case "TEA":
-                return "Cash crop";
-            default: throw new IllegalArgumentException("Unknown produce code: " + produceCode);
-        }
+        return entryFor(produceCode).categoryLabel;
     }
 
     /**
