@@ -25,18 +25,12 @@
             <scope>test</scope>
         </dependency>
 
-        <!--
-          Objective 6 will need a .docx library, e.g. Apache POI:
-
-          <dependency>
-              <groupId>org.apache.poi</groupId>
-              <artifactId>poi-ooxml</artifactId>
-              <version>5.2.5</version>
-          </dependency>
-
-          Added here as a comment now so it's easy to find later; uncomment
-          when you reach Objective 6 rather than pulling it in early.
-        -->
+        <!-- Objective 6: writes output/season-report.docx -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
     </dependencies>
 
     <build>

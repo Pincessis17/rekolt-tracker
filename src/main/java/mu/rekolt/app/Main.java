@@ -9,8 +9,10 @@ import mu.rekolt.model.PerishableProduce;
 import mu.rekolt.model.Produce;
 import mu.rekolt.model.SeasonStore;
 import mu.rekolt.service.PaymentCalculator;
+import mu.rekolt.service.ReportWriter;
 import mu.rekolt.util.ConsoleInput;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -52,10 +54,11 @@ public class Main {
             System.out.println("REKOLT PRODUCE TRACKER - season 2026");
             System.out.println("1. Record a delivery");
             System.out.println("2. Season figures on screen");
-            System.out.println("3. Exit");
+            System.out.println("3. Generate season report (Word document)");
+            System.out.println("4. Exit");
             System.out.println();
 
-            int choice = ConsoleInput.readIntInRange(sc, "Choose an option: ", 1, 3);
+            int choice = ConsoleInput.readIntInRange(sc, "Choose an option: ", 1, 4);
 
             switch (choice) {
                 case 1:
@@ -65,6 +68,9 @@ public class Main {
                     printSeasonFigures();
                     break;
                 case 3:
+                    generateSeasonReport();
+                    break;
+                case 4:
                     running = false;
                     System.out.println("Goodbye.");
                     break;
@@ -111,9 +117,8 @@ public class Main {
         double baseValue = d.getMassKg() * produce.getBasePricePerKg();
         double afterGrade = baseValue * grade.getMultiplier();
         double afterCategory = afterGrade * produce.categoryMultiplier();
-        boolean rejected = grade == Grade.REJECT;
-        double commission = rejected ? 0.0 : afterCategory * PaymentCalculator.COMMISSION_RATE;
-        double transportLevy = rejected ? 0.0 : d.getMassKg() * PaymentCalculator.TRANSPORT_LEVY_PER_KG;
+        double commission = PaymentCalculator.commissionFor(d.getMassKg(), produce, grade);
+        double transportLevy = PaymentCalculator.transportLevyFor(d.getMassKg(), grade);
 
         System.out.printf("  Base value      %.1f x %.2f = %,.2f%n", d.getMassKg(), produce.getBasePricePerKg(), baseValue);
         System.out.printf("  Grade %-7s x %.2f = %,.2f%n", grade, grade.getMultiplier(), afterGrade);
@@ -121,6 +126,27 @@ public class Main {
         System.out.printf("  Commission 5%%    -        %,.2f%n", commission);
         System.out.printf("  Transport levy  %.1f x %.2f -        %,.2f%n", d.getMassKg(), 2.0, transportLevy);
         System.out.printf("  NET PAYABLE     =        %,.2f MUR%n", d.payableAmount());
+    }
+
+    // --- Option 3: generate season report -----------------------------
+
+    /**
+     * Objective 6: writes the season held in SeasonStore to a Word
+     * document. IOException is a specific, checked type (not caught more
+     * broadly as Exception), and is reported with an actionable message
+     * rather than letting the program crash - either way, the menu loop
+     * continues normally afterwards.
+     */
+    private static void generateSeasonReport() {
+        System.out.println();
+        try {
+            ReportWriter.generateReport(store);
+            System.out.println("Season report written to output/season-report.docx");
+            System.out.println("Run log updated at output/run-log.txt");
+        } catch (IOException e) {
+            System.out.println("Could not write the season report: " + e.getMessage());
+            System.out.println("Check that the output folder exists and is writable, then try again.");
+        }
     }
 
     // --- Option 2: season figures on screen ---------------------------
