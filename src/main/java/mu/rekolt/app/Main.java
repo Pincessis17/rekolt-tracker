@@ -1,41 +1,44 @@
 package mu.rekolt.app;
 
+import mu.rekolt.model.CashCropProduce;
+import mu.rekolt.model.CerealProduce;
 import mu.rekolt.model.Delivery;
-import mu.rekolt.service.Grading;
+import mu.rekolt.model.Grade;
+import mu.rekolt.model.Member;
+import mu.rekolt.model.PerishableProduce;
+import mu.rekolt.model.Produce;
+import mu.rekolt.model.SeasonStore;
 import mu.rekolt.service.PaymentCalculator;
 import mu.rekolt.util.ConsoleInput;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
-import java.util.Set;
 
 /**
- * Objective 3: collections.
- * The season's deliveries now live in a generic ArrayList instead of the
- * fixed-capacity array from Objective 2. Three more collections track
- * derived information as deliveries are added: a HashMap of running
- * totals per member, a HashMap of each member's own delivery list, and
- * a HashSet of the distinct member identifiers seen this season - all
- * kept in step inside addDelivery so nothing downstream has to rebuild
- * them from scratch.
+ * Objective 5: abstraction and inheritance.
+ * The four static collections that used to live directly in this class
+ * (Objective 3) are now owned by one SeasonStore. The produce price list
+ * is a List<Produce> - four objects, two of them CerealProduce, one
+ * PerishableProduce, one CashCropProduce - processed everywhere below
+ * through Produce's own public methods only. Nothing here ever asks
+ * "which subclass is this?" with instanceof, and nothing ever casts one
+ * back down to a concrete type.
  */
 public class Main {
 
-    private static final String[] PRODUCE_CODES = {"MZE", "BNS", "POT", "TEA"};
+    private static final List<Produce> PRODUCE_CATALOG = List.of(
+            new CerealProduce("MZE", "Maize", 30.0),
+            new CerealProduce("BNS", "Beans", 90.0),
+            new PerishableProduce("POT", "Potatoes", 45.0),
+            new CashCropProduce("TEA", "Tea", 25.0)
+    );
 
-    private static final List<Delivery> deliveries = new ArrayList<>();
-    private static final Map<String, Double> totalPaymentByMember = new HashMap<>();
-    private static final Map<String, List<Delivery>> deliveriesByMember = new HashMap<>();
-    private static final Set<String> memberIds = new HashSet<>();
-
+    private static final SeasonStore store = new SeasonStore();
     private static int nextDeliveryNumber = 1000;
 
     public static void main(String[] args) {
@@ -76,59 +79,55 @@ public class Main {
     private static void recordDelivery(Scanner sc) {
         System.out.println();
 
-        String memberId;
-        String memberName;
-        while (true) {
-            memberId = ConsoleInput.readMemberId(sc);
-            memberName = ConsoleInput.readMemberName(sc);
-
-            String existingName = existingNameFor(memberId);
-            if (existingName != null && !existingName.equals(memberName)) {
-                System.out.println("  Member " + memberId + " is already recorded as "
-                        + existingName + ". Enter that name, or use a different member "
-                        + "identifier. Please try again.");
-                continue;
+        Member member = null;
+        while (member == null) {
+            String memberId = ConsoleInput.readMemberId(sc);
+            String memberName = ConsoleInput.readMemberName(sc);
+            try {
+                member = store.getOrCreateMember(memberId, memberName);
+            } catch (IllegalArgumentException e) {
+                System.out.println("  " + e.getMessage() + ". Please try again.");
             }
-            break;
         }
 
         String produceCode = ConsoleInput.readProduceCode(sc);
+        Produce produce = findProduceByCode(produceCode);
         double massKg = ConsoleInput.readMass(sc);
         int qualityScore = ConsoleInput.readIntInRange(sc, "Quality score (0-100) : ", 0, 100);
         int week = ConsoleInput.readIntInRange(sc, "Week of delivery (1-20) : ", 1, 20);
 
-        Delivery delivery = new Delivery(nextDeliveryId(), memberId, memberName,
-                produceCode, massKg, qualityScore, week);
-        addDelivery(delivery);
+        Delivery delivery = new Delivery(nextDeliveryId(), member, produce, massKg, qualityScore, week);
+        store.addDelivery(delivery);
 
         System.out.println();
-        System.out.println("Delivery " + delivery.deliveryId + " recorded. Grade " + delivery.grade);
+        System.out.println("Delivery " + delivery.getDeliveryId() + " recorded. Grade " + delivery.getGrade());
         printReceipt(delivery);
     }
 
     private static void printReceipt(Delivery d) {
-        double basePrice = PaymentCalculator.basePriceFor(d.produceCode);
-        double categoryMultiplier = PaymentCalculator.categoryMultiplierFor(d.produceCode);
-        String categoryLabel = PaymentCalculator.categoryLabelFor(d.produceCode);
+        Produce produce = d.getProduce();
+        Grade grade = d.getGrade();
 
-        double baseValue = d.massKg * basePrice;
-        double gradeMultiplier = Grading.gradeMultiplier(d.grade);
-        double afterGrade = baseValue * gradeMultiplier;
-        double afterCategory = afterGrade * categoryMultiplier;
-        double commission = d.grade.equals("REJECT") ? 0.0 : afterCategory * 0.05;
-        double transportLevy = d.grade.equals("REJECT") ? 0.0 : d.massKg * 2.0;
+        double baseValue = d.getMassKg() * produce.getBasePricePerKg();
+        double afterGrade = baseValue * grade.getMultiplier();
+        double afterCategory = afterGrade * produce.categoryMultiplier();
+        boolean rejected = grade == Grade.REJECT;
+        double commission = rejected ? 0.0 : afterCategory * PaymentCalculator.COMMISSION_RATE;
+        double transportLevy = rejected ? 0.0 : d.getMassKg() * PaymentCalculator.TRANSPORT_LEVY_PER_KG;
 
-        System.out.printf("  Base value      %.1f x %.2f = %,.2f%n", d.massKg, basePrice, baseValue);
-        System.out.printf("  Grade %-7s x %.2f = %,.2f%n", d.grade, gradeMultiplier, afterGrade);
-        System.out.printf("  %-15s x %.2f = %,.2f%n", categoryLabel, categoryMultiplier, afterCategory);
+        System.out.printf("  Base value      %.1f x %.2f = %,.2f%n", d.getMassKg(), produce.getBasePricePerKg(), baseValue);
+        System.out.printf("  Grade %-7s x %.2f = %,.2f%n", grade, grade.getMultiplier(), afterGrade);
+        System.out.printf("  %-15s x %.2f = %,.2f%n", produce.categoryLabel(), produce.categoryMultiplier(), afterCategory);
         System.out.printf("  Commission 5%%    -        %,.2f%n", commission);
-        System.out.printf("  Transport levy  %.1f x %.2f -        %,.2f%n", d.massKg, 2.0, transportLevy);
-        System.out.printf("  NET PAYABLE     =        %,.2f MUR%n", d.netPayable);
+        System.out.printf("  Transport levy  %.1f x %.2f -        %,.2f%n", d.getMassKg(), 2.0, transportLevy);
+        System.out.printf("  NET PAYABLE     =        %,.2f MUR%n", d.payableAmount());
     }
 
     // --- Option 2: season figures on screen ---------------------------
 
     private static void printSeasonFigures() {
+        System.out.println();
+        printProduceCatalog();
         System.out.println();
         printMemberTotals();
         System.out.println();
@@ -141,30 +140,42 @@ public class Main {
         printLookupDemo();
     }
 
-    /** Total payment per member, read straight from the HashMap kept up to date in addDelivery. */
+    /**
+     * The produce catalog, processed polymorphically: every element is a
+     * Produce reference, and every call below (getCode, categoryLabel,
+     * getBasePricePerKg, categoryMultiplier) dispatches to whichever
+     * subclass that element actually is. No instanceof, no downcasting.
+     */
+    private static void printProduceCatalog() {
+        System.out.println("Produce catalog");
+        for (Produce produce : PRODUCE_CATALOG) {
+            System.out.printf("  %-4s %-10s %-12s %6.2f MUR/kg  x%.2f%n",
+                    produce.getCode(), produce.getLabel(), produce.categoryLabel(),
+                    produce.getBasePricePerKg(), produce.categoryMultiplier());
+        }
+    }
+
+    /** Total payment per member, via each Member's own Payable.payableAmount(). */
     private static void printMemberTotals() {
-        System.out.println("Total payment per member (MUR) - " + memberIds.size() + " member(s) this season");
-        for (String memberId : memberIds) {
-            List<Delivery> theirDeliveries = deliveriesByMember.get(memberId);
-            String memberName = theirDeliveries.get(0).memberName;
-            double total = totalPaymentByMember.get(memberId);
-            System.out.printf("  %-8s %-18s %,10.2f%n", memberId, memberName, total);
+        System.out.println("Total payment per member (MUR) - " + store.distinctMemberCount() + " member(s) this season");
+        for (Member member : store.getMembers().values()) {
+            System.out.printf("  %-8s %-18s %,10.2f%n", member.getMemberId(), member.getName(), member.payableAmount());
         }
     }
 
     /** Weekly volume grid (kg), held as a real 2D array, built with nested loops. */
     private static void printWeeklyGrid() {
         int maxWeek = 0;
-        for (Delivery d : deliveries) {
-            if (d.week > maxWeek) {
-                maxWeek = d.week;
+        for (Delivery d : store.getDeliveries()) {
+            if (d.getWeek() > maxWeek) {
+                maxWeek = d.getWeek();
             }
         }
 
-        double[][] grid = new double[maxWeek + 1][PRODUCE_CODES.length];
-        for (Delivery d : deliveries) {
-            int col = indexOfProduceCode(d.produceCode);
-            grid[d.week][col] += d.massKg;
+        double[][] grid = new double[maxWeek + 1][PRODUCE_CATALOG.size()];
+        for (Delivery d : store.getDeliveries()) {
+            int col = indexOfProduceCode(d.getProduce().getCode());
+            grid[d.getWeek()][col] += d.getMassKg();
         }
 
         System.out.println("Weekly volume grid (kg)");
@@ -179,15 +190,6 @@ public class Main {
         }
     }
 
-    private static int indexOfProduceCode(String produceCode) {
-        for (int i = 0; i < PRODUCE_CODES.length; i++) {
-            if (PRODUCE_CODES[i].equals(produceCode)) {
-                return i;
-            }
-        }
-        throw new IllegalArgumentException("Unknown produce code: " + produceCode);
-    }
-
     /**
      * Top deliveries by value. REJECT deliveries are worth nothing, so
      * they're removed from this working copy through an Iterator before
@@ -195,40 +197,41 @@ public class Main {
      * this ranking.
      */
     private static void printTopDeliveriesByValue() {
-        List<Delivery> workingCopy = new ArrayList<>(deliveries);
+        List<Delivery> workingCopy = new ArrayList<>(store.getDeliveries());
 
         Iterator<Delivery> it = workingCopy.iterator();
         while (it.hasNext()) {
-            if (it.next().grade.equals("REJECT")) {
+            if (it.next().getGrade() == Grade.REJECT) {
                 it.remove();
             }
         }
 
-        workingCopy.sort(Comparator.comparingDouble((Delivery d) -> d.netPayable).reversed());
+        workingCopy.sort(Comparator.comparingDouble(Delivery::payableAmount).reversed());
 
         System.out.println("Top deliveries by value (REJECT excluded)");
         int limit = Math.min(5, workingCopy.size());
         for (int i = 0; i < limit; i++) {
             Delivery d = workingCopy.get(i);
             System.out.printf("  %d. %-6s %-8s %-3s %6.1f kg %-7s %,10.2f%n",
-                    i + 1, d.deliveryId, d.memberId, d.produceCode, d.massKg, d.grade, d.netPayable);
+                    i + 1, d.getDeliveryId(), d.getMember().getMemberId(), d.getProduce().getCode(),
+                    d.getMassKg(), d.getGrade(), d.payableAmount());
         }
     }
 
     /** Same deliveries, in their natural order - Delivery.compareTo, by ID. */
     private static void printDeliveriesInNaturalOrder() {
-        List<Delivery> byId = new ArrayList<>(deliveries);
+        List<Delivery> byId = new ArrayList<>(store.getDeliveries());
         Collections.sort(byId);
 
         System.out.println("Deliveries in ID order");
         for (Delivery d : byId) {
-            System.out.printf("  %-6s %-8s %-3s%n", d.deliveryId, d.memberId, d.produceCode);
+            System.out.printf("  %-6s %-8s %-3s%n", d.getDeliveryId(), d.getMember().getMemberId(), d.getProduce().getCode());
         }
     }
 
     /** Demonstrates the identifier search, for both a delivery that exists and one that doesn't. */
     private static void printLookupDemo() {
-        String knownId = deliveries.get(0).deliveryId;
+        String knownId = store.getDeliveries().get(0).getDeliveryId();
         String unknownId = "D-9999";
 
         System.out.println("Delivery lookup demo");
@@ -237,61 +240,60 @@ public class Main {
     }
 
     private static void printLookupResult(String deliveryId) {
-        Optional<Delivery> found = findDeliveryById(deliveryId);
+        Optional<Delivery> found = store.findDeliveryById(deliveryId);
         if (found.isPresent()) {
-            System.out.println("  " + deliveryId + " -> found, member " + found.get().memberId);
+            System.out.println("  " + deliveryId + " -> found, member " + found.get().getMember().getMemberId());
         } else {
             System.out.println("  " + deliveryId + " -> not found this season");
         }
     }
 
-    /** Linear search by delivery ID; returns empty rather than null or throwing when absent. */
-    private static Optional<Delivery> findDeliveryById(String deliveryId) {
-        for (Delivery d : deliveries) {
-            if (d.deliveryId.equals(deliveryId)) {
-                return Optional.of(d);
+    // --- Helpers ------------------------------------------------
+
+    /** Linear search of the produce catalog by code - compares codes only, never branches on subtype. */
+    private static Produce findProduceByCode(String code) {
+        for (Produce produce : PRODUCE_CATALOG) {
+            if (produce.getCode().equals(code)) {
+                return produce;
             }
         }
-        return Optional.empty();
+        throw new IllegalArgumentException("Unknown produce code: " + code);
     }
 
-    // --- Storage helpers ------------------------------------------------
-
-    /**
-     * The name already on file for a member ID this season, or null if the ID
-     * hasn't been seen yet. Used to enforce that one member ID always maps to
-     * one name (design assumption E), rather than silently merging two
-     * different names' deliveries under a reused ID.
-     */
-    private static String existingNameFor(String memberId) {
-        List<Delivery> existing = deliveriesByMember.get(memberId);
-        return existing == null ? null : existing.get(0).memberName;
-    }
-
-    private static void addDelivery(Delivery d) {
-        deliveries.add(d);
-        memberIds.add(d.memberId);
-        deliveriesByMember.computeIfAbsent(d.memberId, k -> new ArrayList<>()).add(d);
-        totalPaymentByMember.merge(d.memberId, d.netPayable, Double::sum);
+    private static int indexOfProduceCode(String code) {
+        for (int i = 0; i < PRODUCE_CATALOG.size(); i++) {
+            if (PRODUCE_CATALOG.get(i).getCode().equals(code)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("Unknown produce code: " + code);
     }
 
     private static String nextDeliveryId() {
         return "D-" + (nextDeliveryNumber++);
     }
 
+    private static void seedDelivery(String memberId, String memberName, String produceCode,
+                                      double massKg, int qualityScore, int week) {
+        Member member = store.getOrCreateMember(memberId, memberName);
+        Produce produce = findProduceByCode(produceCode);
+        Delivery delivery = new Delivery(nextDeliveryId(), member, produce, massKg, qualityScore, week);
+        store.addDelivery(delivery);
+    }
+
     /** A dozen deliveries held in code, per the spec's Objective 2 allowance. */
     private static void seedSeason() {
-        addDelivery(new Delivery(nextDeliveryId(), "M-0042", "Devi Ramjaun", "BNS", 236.0, 91, 3));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0117", "Jean Ah-Kine", "MZE", 412.5, 78, 1));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0088", "Anisha Beeharry", "POT", 150.0, 62, 2));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0042", "Devi Ramjaun", "TEA", 88.3, 95, 1));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0117", "Jean Ah-Kine", "BNS", 390.5, 70, 2));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0088", "Anisha Beeharry", "MZE", 180.0, 85, 2));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0042", "Devi Ramjaun", "POT", 95.0, 45, 2));   // REJECT
-        addDelivery(new Delivery(nextDeliveryId(), "M-0117", "Jean Ah-Kine", "TEA", 60.0, 88, 3));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0088", "Anisha Beeharry", "BNS", 210.0, 73, 3));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0042", "Devi Ramjaun", "MZE", 300.0, 91, 4));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0117", "Jean Ah-Kine", "POT", 125.0, 55, 4));
-        addDelivery(new Delivery(nextDeliveryId(), "M-0088", "Anisha Beeharry", "TEA", 72.4, 60, 4));
+        seedDelivery("M-0042", "Devi Ramjaun", "BNS", 236.0, 91, 3);
+        seedDelivery("M-0117", "Jean Ah-Kine", "MZE", 412.5, 78, 1);
+        seedDelivery("M-0088", "Anisha Beeharry", "POT", 150.0, 62, 2);
+        seedDelivery("M-0042", "Devi Ramjaun", "TEA", 88.3, 95, 1);
+        seedDelivery("M-0117", "Jean Ah-Kine", "BNS", 390.5, 70, 2);
+        seedDelivery("M-0088", "Anisha Beeharry", "MZE", 180.0, 85, 2);
+        seedDelivery("M-0042", "Devi Ramjaun", "POT", 95.0, 45, 2);   // REJECT
+        seedDelivery("M-0117", "Jean Ah-Kine", "TEA", 60.0, 88, 3);
+        seedDelivery("M-0088", "Anisha Beeharry", "BNS", 210.0, 73, 3);
+        seedDelivery("M-0042", "Devi Ramjaun", "MZE", 300.0, 91, 4);
+        seedDelivery("M-0117", "Jean Ah-Kine", "POT", 125.0, 55, 4);
+        seedDelivery("M-0088", "Anisha Beeharry", "TEA", 72.4, 60, 4);
     }
 }
