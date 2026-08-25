@@ -75,8 +75,23 @@ public class Main {
 
     private static void recordDelivery(Scanner sc) {
         System.out.println();
-        String memberId = ConsoleInput.readMemberId(sc);
-        String memberName = ConsoleInput.readMemberName(sc);
+
+        String memberId;
+        String memberName;
+        while (true) {
+            memberId = ConsoleInput.readMemberId(sc);
+            memberName = ConsoleInput.readMemberName(sc);
+
+            String existingName = existingNameFor(memberId);
+            if (existingName != null && !existingName.equals(memberName)) {
+                System.out.println("  Member " + memberId + " is already recorded as "
+                        + existingName + ". Enter that name, or use a different member "
+                        + "identifier. Please try again.");
+                continue;
+            }
+            break;
+        }
+
         String produceCode = ConsoleInput.readProduceCode(sc);
         double massKg = ConsoleInput.readMass(sc);
         int qualityScore = ConsoleInput.readIntInRange(sc, "Quality score (0-100) : ", 0, 100);
@@ -242,6 +257,17 @@ public class Main {
 
     // --- Storage helpers ------------------------------------------------
 
+    /**
+     * The name already on file for a member ID this season, or null if the ID
+     * hasn't been seen yet. Used to enforce that one member ID always maps to
+     * one name (design assumption E), rather than silently merging two
+     * different names' deliveries under a reused ID.
+     */
+    private static String existingNameFor(String memberId) {
+        List<Delivery> existing = deliveriesByMember.get(memberId);
+        return existing == null ? null : existing.get(0).memberName;
+    }
+
     private static void addDelivery(Delivery d) {
         deliveries.add(d);
         memberIds.add(d.memberId);
@@ -253,7 +279,7 @@ public class Main {
         return "D-" + (nextDeliveryNumber++);
     }
 
-    /** A dozen or so deliveries held in code, per the spec's Objective 2 allowance. */
+    /** A dozen deliveries held in code, per the spec's Objective 2 allowance. */
     private static void seedSeason() {
         addDelivery(new Delivery(nextDeliveryId(), "M-0042", "Devi Ramjaun", "BNS", 236.0, 91, 3));
         addDelivery(new Delivery(nextDeliveryId(), "M-0117", "Jean Ah-Kine", "MZE", 412.5, 78, 1));
