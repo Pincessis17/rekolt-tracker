@@ -25,9 +25,29 @@ public class PaymentCalculator {
             return 0.0;
         }
 
-        double afterCategory = produce.valuation(massKg, grade);   // Steps 1-3
-        double commission = afterCategory * COMMISSION_RATE;       // Step 4
-        double transportLevy = massKg * TRANSPORT_LEVY_PER_KG;     // Step 5
+        double afterCategory = produce.valuation(massKg, grade);          // Steps 1-3
+        double commission = commissionFor(massKg, produce, grade);        // Step 4
+        double transportLevy = transportLevyFor(massKg, grade);           // Step 5
         return afterCategory - commission - transportLevy;
+    }
+
+    /**
+     * Step 4 alone - broken out so the season report (Objective 6) can show
+     * commission per delivery without duplicating the REJECT rule a third
+     * time next to computeNetPayable and Main's printReceipt.
+     */
+    public static double commissionFor(double massKg, Produce produce, Grade grade) {
+        if (grade == Grade.REJECT) {
+            return 0.0;
+        }
+        return produce.valuation(massKg, grade) * COMMISSION_RATE;
+    }
+
+    /** Step 5 alone - see commissionFor. */
+    public static double transportLevyFor(double massKg, Grade grade) {
+        if (grade == Grade.REJECT) {
+            return 0.0;
+        }
+        return massKg * TRANSPORT_LEVY_PER_KG;
     }
 }
