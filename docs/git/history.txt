@@ -1,0 +1,46 @@
+Git history graph for rekolt-tracker, generated with:
+
+    git log --all --graph --oneline --decorate
+
+* a005d1e (HEAD -> main, origin/main, origin/HEAD) Add JDK, IDE, git identity and remote setup evidence
+* 3c50a3e Ignore desktop.ini
+*   f8f627f (tag: v0.6) Merge objective-6-word-report into main
+|\
+| * e427b4e (origin/objective-6-word-report, objective-6-word-report) Write season report to output/season-report.docx and log each run
+|/
+* 25bece9 Add updated UML (design-v2) reflecting the Objective 5 build
+* c0c14df Log Objective 5 deviations from the paper design
+*   f3c19f2 (tag: v0.5) Merge objective-5-abstraction into main
+|\
+| * 71b3546 (origin/objective-5-abstraction, objective-5-abstraction) Add Produce hierarchy, Grade enum, Payable/Reportable interfaces, Member and SeasonStore
+|/
+*   2175e85 (tag: v0.4) Merge objective-4-design into main
+|\
+| * 08e8159 (origin/objective-4-design, objective-4-design) Add on-paper design: scope, requirements, UML, activity diagram, pseudocode, data dictionary, rationale
+|/
+*   513775b Merge fix-member-id-name-consistency into main
+|\
+| * b518b59 (fix-member-id-name-consistency) Reject a delivery whose member ID is already recorded under a different name
+|/
+*   7ed65f9 (tag: v0.3, origin/fix-member-id-name-consistency) Merge objective-3-collections into main
+|\
+| * fe4e5e9 (origin/objective-3-collections, objective-3-collections) Add written justification for each collection choice
+| * ba5f39f Replace array with ArrayList, add HashMap/HashSet tracking, Comparator sort, Iterator removal and Optional search
+| * acce261 Make Delivery implement Comparable by ID
+| * 859b7f8 Replace price list switches with a searched array
+| * 7fd5263 Add PriceListEntry array row type
+|/
+* a82f225 Normalize line endings
+*   850fd4c (tag: v0.2) Merge objective-2-control-flow into main
+|\
+| * 1a08712 (origin/objective-2-control-flow, objective-2-control-flow) Add menu loop, delivery recording and season reporting
+| * c74b165 Add payment calculator with overloaded computeNetPayable
+| * 1d4be87 Add Delivery data holder class
+| * e16265f Add grading logic using if/else-if and switch
+| * b246409 Add validated console input helpers
+|/
+* c65fc4a (tag: v0.1, origin/objective-1-arithmetic, objective-1-arithmetic) Stop tracking IDE files and fix .gitignore
+*   f0474af Setup Commit
+|\
+| * 9eb922b Initial commit
+* 8577edb Initial Setup Commit
