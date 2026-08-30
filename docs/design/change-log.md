@@ -17,7 +17,7 @@ reason for each change.
 2. **`Produce`'s constructor is `protected`, not public as drawn.**
    The UML showed `+ Produce(code, label, basePricePerKg)` with public
    visibility. Since `Produce` is abstract, a public constructor would be
-   misleading — it can only ever be reached via a subclass's `super()`
+   misleading it can only ever be reached via a subclass's `super()`
    call, so the build uses `protected` instead.
 
 3. **`SeasonStore.weeklyGrid()` was designed but not built as a method on
@@ -25,7 +25,7 @@ reason for each change.
    `+ weeklyGrid() : double[][]` method. In the build, the weekly grid is
    still assembled directly in `Main`, from `store.getDeliveries()`,
    because it depends on `Main`'s own produce-catalog column order (which
-   code goes in which column) — pulling the method into `SeasonStore` would
+   code goes in which column) pulling the method into `SeasonStore` would
    just mean passing that same column order back in as a parameter, for no
    real encapsulation benefit.
 

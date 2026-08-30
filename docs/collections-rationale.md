@@ -61,12 +61,23 @@ flat.
 type a single sensible default order - the order deliveries were recorded in. This
 is what `Collections.sort(list)` uses with no arguments.
 
-**A `Comparator<Delivery>`** (`Comparator.comparingDouble(d -> d.netPayable)
-.reversed()`) provides a second, situational ordering - highest value first - used
-only for the "top deliveries by value" report. This doesn't belong on `Delivery`
-itself as its natural order, since "most valuable first" isn't the type's inherent
-identity the way its ID is; a `Comparator` lets the same list be sorted a
-different way for one specific report without touching the class.
+**A `Comparator<Delivery>`**
+(`Comparator.comparingDouble(Delivery::payableAmount).reversed()
+.thenComparing(Delivery::getDeliveryId)`) provides a second, situational
+ordering - highest value first - used only for the "top deliveries by value"
+report. This doesn't belong on `Delivery` itself as its natural order, since
+"most valuable first" isn't the type's inherent identity the way its ID is; a
+`Comparator` lets the same list be sorted a different way for one specific
+report without touching the class.
+
+This ordering is on two fields, not one: `payableAmount` descending is the
+primary key, and `deliveryId` ascending is the tie-break. Two deliveries can
+genuinely be worth the same amount - same produce, same grade, same mass
+produces the same net payable - so without a second key, deliveries tied on
+value would come out in whatever order the sort happened to leave them,
+which is not wrong but is not reproducible either. Breaking the tie by ID
+(the order the deliveries were recorded in) makes the ranking deterministic
+run to run.
 
 ## Iterator
 

@@ -221,6 +221,14 @@ public class Main {
      * they're removed from this working copy through an Iterator before
      * sorting - they still count towards the weekly grid above, just not
      * this ranking.
+     *
+     * The sort is by two fields: payableAmount descending first, then
+     * deliveryId ascending as a tie-break. Two deliveries can genuinely
+     * be worth the same amount (same produce, same grade, same mass), so
+     * without a second key the ranking among tied deliveries would be
+     * whatever order the sort happens to leave them in - not wrong, but
+     * not deterministic either. Breaking ties by ID (the order recorded)
+     * makes the ranking reproducible.
      */
     private static void printTopDeliveriesByValue() {
         List<Delivery> workingCopy = new ArrayList<>(store.getDeliveries());
@@ -232,7 +240,8 @@ public class Main {
             }
         }
 
-        workingCopy.sort(Comparator.comparingDouble(Delivery::payableAmount).reversed());
+        workingCopy.sort(Comparator.comparingDouble(Delivery::payableAmount).reversed()
+                .thenComparing(Delivery::getDeliveryId));
 
         System.out.println("Top deliveries by value (REJECT excluded)");
         int limit = Math.min(5, workingCopy.size());
